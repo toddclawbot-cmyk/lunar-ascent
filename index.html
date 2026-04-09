@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lunar Ascent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #050510;
+  --bg-panel: rgba(8, 12, 28, 0.85);
+  --accent-cyan: #00e5ff;
+  --accent-teal: #00ffc8;
+  --accent-orange: #ff6b35;
+  --accent-red: #ff2d55;
+  --accent-yellow: #ffd60a;
+  --text-primary: #e8f4f8;
+  --text-dim: #7a9aa8;
+  --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.6);
+  --glow-teal: 0 0 20px rgba(0, 255, 200, 0.6);
+  --glow-orange: 0 0 20px rgba(255, 107, 53, 0.6);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-deep);
+  overflow: hidden;
+  font-family: 'Orbitron', monospace;
+  color: var(--text-primary);
+  user-select: none;
+}
+canvas { display: block; }
+#ui {
+  position: fixed; inset: 0; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.screen {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 20px; padding: 40px;
+}
+.screen.active { display: flex; }
+#title-screen h1 {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 900;
+  color: var(--accent-cyan);
+  text-shadow: var(--glow-cyan), 0 0 60px rgba(0, 229, 255, 0.3);
+  letter-spacing: 0.1em;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { text-shadow: var(--glow-cyan), 0 0 60px rgba(0, 229, 255, 0.3); }
+  50% { text-shadow: 0 0 40px rgba(0, 229, 255, 0.9), 0 0 80px rgba(0, 229, 255, 0.5); }
+}
+#title-screen .subtitle {
+  font-size: clamp(0.8rem, 2vw, 1.2rem);
+  color: var(--text-dim);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.btn {
+  pointer-events: all;
+  background: transparent;
+  border: 2px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px 40px;
+  cursor: pointer;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--accent-cyan);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.btn:hover { color: var(--bg-deep); box-shadow: var(--glow-cyan); }
+.btn:hover::before { opacity: 1; }
+.btn span { position: relative; z-index: 1; }
+.btn-small { font-size: 0.75rem; padding: 8px 20px; }
+.btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
+.btn-danger:hover { box-shadow: var(--glow-orange); color: var(--bg-deep); }
+.btn-danger::before { background: var(--accent-red); }
+.level-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  pointer-events: all;
+}
+.level-btn {
+  background: var(--bg-panel);
+  border: 2px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 16px 20px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+  text-align: center;
+}
+.level-btn:hover { background: rgba(0, 229, 255, 0.15); box-shadow: var(--glow-cyan); }
+.level-btn.locked { border-color: var(--text-dim); color: var(--text-dim); cursor: not-allowed; opacity: 0.4; }
+.level-btn .lvl-num { font-size: 1.4rem; display: block; }
+.level-btn .lvl-name { font-size: 0.6rem; display: block; margin-top: 4px; color: var(--text-dim); letter-spacing: 0.15em; }
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 50;
+  gap: 8px;
+}
+#hud.active { display: flex; }
+.hud-left, .hud-right, .hud-center {
+  display: flex; flex-direction: column; gap: 5px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.hud-center { align-items: center; flex-shrink: 0; }
+.hud-right { align-items: flex-end; }
+.hud-label {
+  font-size: 0.5rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hud-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  text-shadow: var(--glow-cyan);
+  white-space: nowrap;
+}
+.hud-value.danger { color: var(--accent-orange); text-shadow: var(--glow-orange); }
+.hud-value.success { color: var(--accent-teal); text-shadow: var(--glow-teal); }
+.gauge-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 100px; max-width: 160px; }
+.gauge-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-teal));
+  transition: width 0.1s;
+  box-shadow: var(--glow-cyan);
+}
+.gauge-fill.low { background: linear-gradient(90deg, var(--accent-orange), var(--accent-red)); box-shadow: var(--glow-orange); }
+.gauge-fill.throttle { background: linear-gradient(90deg, var(--accent-yellow), var(--accent-orange)); box-shadow: var(--glow-orange); }
+.gauge-fill.critical { animation: blink 0.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+#hud-restart {
+  pointer-events: all;
+  position: fixed; bottom: 20px; right: 20px;
+  font-size: 0.65rem;
+  z-index: 110;
+}
+.vel-comparison {
+  display: flex; gap: 6px; align-items: center;
+  font-size: 0.7rem;
+}
+.vel-comparison .current { color: var(--accent-cyan); }
+.vel-comparison .needed { color: var(--text-dim); font-size: 0.55rem; }
+#msg-overlay {
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(5, 5, 16, 0.7);
+  pointer-events: all;
+  z-index: 100;
+}
+#msg-overlay.active { display: flex; }
+.msg-box {
+  background: var(--bg-panel);
+  border: 2px solid var(--accent-cyan);
+  padding: 30px 40px;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 16px;
+  box-shadow: var(--glow-cyan), 0 0 100px rgba(0, 229, 255, 0.1);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.msg-box.success { border-color: var(--accent-teal); box-shadow: var(--glow-teal), 0 0 100px rgba(0, 255, 200, 0.1); }
+.msg-box.failure { border-color: var(--accent-red); box-shadow: var(--glow-orange), 0 0 100px rgba(255, 107, 53, 0.1); }
+.msg-title { font-size: 2rem; font-weight: 900; }
+.msg-box.success .msg-title { color: var(--accent-teal); text-shadow: var(--glow-teal); }
+.msg-box.failure .msg-title { color: var(--accent-red); }
+.msg-desc { font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0.1em; line-height: 1.8; }
+.msg-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.controls-hint {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  line-height: 2;
+}
+
+/* ── Touch Controls ─────────────────────────────────────────────────── */
+#touch-controls {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 160px;
+  pointer-events: none;
+  z-index: 100;
+  padding: 0 16px 20px;
+}
+#touch-controls.active { display: flex; }
+.touch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  pointer-events: none;
+}
+.touch-btn {
+  pointer-events: all;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.12);
+  border: 2px solid rgba(0, 229, 255, 0.4);
+  color: var(--accent-cyan);
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+.touch-btn:active, .touch-btn.active {
+  background: rgba(0, 229, 255, 0.3);
+  transform: scale(0.93);
+}
+.touch-btn svg { width: 28px; height: 28px; fill: currentColor; }
+#touch-left-group, #touch-right-group { display: flex; gap: 12px; }
+
+/* ── Star ratings ──────────────────────────────────────────────────── */
+.lvl-stars {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  color: var(--accent-yellow);
+  letter-spacing: 0.1em;
+}
+.msg-stars {
+  font-size: 2.2rem;
+  color: var(--accent-yellow);
+  text-shadow: 0 0 12px rgba(255, 214, 10, 0.5);
+  letter-spacing: 0.15em;
+  display: inline-block;
+  margin-top: 8px;
+}
+
+/* ── Notification popup ───────────────────────────────────────────── */
+#notification {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(0, 255, 200, 0.15);
+  border: 1px solid var(--accent-teal);
+  color: var(--accent-teal);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 10px 28px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 200;
+  text-shadow: var(--glow-teal);
+}
+#notification.active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  animation: notif-fade 2s ease-out forwards;
+}
+@keyframes notif-fade {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+/* ── Responsive: tablets and small desktops ──────────────────────── */
+@media (max-width: 900px) {
+  .level-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .level-btn { padding: 12px 14px; font-size: 0.75rem; }
+  .level-btn .lvl-num { font-size: 1.1rem; }
+  .msg-box { padding: 24px 28px; }
+  .msg-title { font-size: 1.5rem; }
+}
+
+/* ── Responsive: mobile ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  #touch-controls.active { display: flex; }
+  .controls-hint { display: none; }
+
+  /* HUD: compact for small screens */
+  #hud { padding: 8px 10px; gap: 4px; }
+  .hud-left, .hud-right, .hud-center { gap: 3px; }
+  .hud-label { font-size: 0.4rem; letter-spacing: 0.1em; }
+  .hud-value { font-size: 0.65rem; }
+  .gauge-wrap { min-width: 70px; max-width: 100px; }
+  .gauge-bar { height: 6px; }
+  .vel-comparison { font-size: 0.55rem; gap: 4px; }
+  .vel-comparison .needed { font-size: 0.45rem; }
+  .hud-center .hud-value { font-size: 0.7rem !important; }
+
+  /* Move restart button above touch controls */
+  #hud-restart { bottom: 175px; right: 10px; }
+
+  /* Level grid: 2 columns on small screens */
+  .level-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .level-btn { padding: 12px 10px; font-size: 0.7rem; }
+  .level-btn .lvl-num { font-size: 1rem; }
+  .level-btn .lvl-name { font-size: 0.5rem; }
+  .lvl-stars { font-size: 0.8rem; margin-top: 4px; }
+
+  /* Message box */
+  .msg-box { padding: 20px 20px; gap: 12px; }
+  .msg-title { font-size: 1.3rem; }
+  .msg-desc { font-size: 0.7rem; }
+  .msg-stars { font-size: 1.6rem; }
+  .msg-buttons { gap: 8px; }
+  .btn-small { font-size: 0.65rem; padding: 6px 14px; }
+
+  /* Title screen */
+  #title-screen h1 { font-size: clamp(1.8rem, 8vw, 3rem); }
+  .screen { padding: 20px; gap: 14px; }
+
+  /* Notification */
+  #notification { top: auto; bottom: 185px; font-size: 0.7rem; padding: 8px 16px; }
+
+  /* Touch controls */
+  #touch-controls { height: 140px; padding: 0 12px 14px; }
+  .touch-btn { width: 54px; height: 54px; }
+}
+
+/* ── Very small screens (iPhone SE etc.) ─────────────────────────── */
+@media (max-width: 380px) {
+  #hud { padding: 6px 6px; }
+  .hud-label { font-size: 0.35rem; }
+  .hud-value { font-size: 0.55rem; }
+  .gauge-wrap { min-width: 55px; max-width: 80px; }
+  .hud-center .hud-value { font-size: 0.6rem !important; }
+  .level-grid { grid-template-columns: repeat(2, 1fr); }
+  .touch-btn { width: 46px; height: 46px; }
+  #touch-controls { height: 120px; }
+  #hud-restart { bottom: 140px; }
+  #notification { bottom: 150px; font-size: 0.6rem; }
+}
+
+/* ── Landscape mobile ────────────────────────────────────────────── */
+@media (max-height: 500px) {
+  #hud { padding: 6px 12px; }
+  .hud-left, .hud-right, .hud-center { gap: 2px; }
+  .hud-label { font-size: 0.4rem; }
+  .hud-value { font-size: 0.6rem; }
+  .gauge-bar { height: 5px; }
+  #touch-controls { height: 100px; padding: 0 10px 8px; }
+  .touch-btn { width: 44px; height: 44px; }
+  #hud-restart { bottom: 110px; font-size: 0.55rem; }
+  #notification { bottom: 115px; }
+  .screen { padding: 12px; gap: 10px; }
+  .msg-box { padding: 16px 20px; gap: 10px; }
+  .msg-title { font-size: 1.1rem; }
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="title-screen" class="screen active">
+    <h1>LUNAR ASCENT</h1>
+    <p class="subtitle">Orbital Flight Simulator</p>
+    <button class="btn" id="btn-launch"><span>Launch Mission</span></button>
+    <button class="btn btn-small" id="btn-levels"><span>Level Select</span></button>
+    <div class="controls-hint">
+      W/↑ THRUST &nbsp;|&nbsp; S/↓ BRAKE &nbsp;|&nbsp; A/← ROTATE LEFT &nbsp;|&nbsp; D/→ ROTATE RIGHT<br>
+      Achieve stable orbit around the moon to complete each level
+    </div>
+  </div>
+  <div id="level-screen" class="screen">
+    <h2 style="font-size:1.5rem;color:var(--accent-cyan);letter-spacing:0.2em;">SELECT MISSION</h2>
+    <div class="level-grid" id="level-grid"></div>
+    <button class="btn btn-small" id="btn-back"><span>Back</span></button>
+  </div>
+  <div id="gameplay-screen" class="screen" style="display:none;"></div>
+</div>
+<div id="hud">
+  <div class="hud-left">
+    <div class="gauge-wrap">
+      <span class="hud-label">Fuel</span>
+      <div class="gauge-bar"><div class="gauge-fill" id="fuel-bar"></div></div>
+    </div>
+    <div class="gauge-wrap">
+      <span class="hud-label">Throttle</span>
+      <div class="gauge-bar"><div class="gauge-fill throttle" id="throttle-bar"></div></div>
+    </div>
+    <div>
+      <span class="hud-label">Altitude</span>
+      <div class="hud-value" id="hud-alt">—</div>
+    </div>
+    <div>
+      <span class="hud-label">Periapsis</span>
+      <div class="hud-value" id="hud-peri">—</div>
+    </div>
+    <div>
+      <span class="hud-label">Apoapsis</span>
+      <div class="hud-value" id="hud-apo">—</div>
+    </div>
+  </div>
+  <div class="hud-center">
+    <div class="hud-label">Mission</div>
+    <div class="hud-value" id="hud-level" style="font-size:1.2rem;">LEVEL 1</div>
+  </div>
+  <div class="hud-right">
+    <div>
+      <span class="hud-label">Velocity</span>
+      <div class="vel-comparison">
+        <span class="current" id="hud-vel">—</span>
+        <span class="needed" id="hud-vel-needed">orbit: —</span>
+      </div>
+    </div>
+    <div>
+      <span class="hud-label">Status</span>
+      <div class="hud-value" id="hud-status">PRESS ↑ TO LAUNCH</div>
+    </div>
+  </div>
+</div>
+<div id="msg-overlay">
+  <div class="msg-box" id="msg-box">
+    <div class="msg-title" id="msg-title"></div>
+    <div class="msg-desc" id="msg-desc"></div>
+    <div class="msg-buttons" id="msg-buttons"></div>
+  </div>
+</div>
+<button class="btn btn-small btn-danger" id="hud-restart" style="display:none;">Restart</button>
+<div id="notification"></div>
+
+<!-- Mobile Touch Controls -->
+<div id="touch-controls">
+  <div class="touch-row">
+    <!-- Left: Rotation -->
+    <div id="touch-left-group">
+      <button class="touch-btn" id="touch-left" aria-label="Rotate Left">
+        <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
+      </button>
+      <button class="touch-btn" id="touch-right" aria-label="Rotate Right">
+        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
+    </div>
+    <!-- Right: Throttle -->
+    <div id="touch-right-group">
+      <button class="touch-btn" id="touch-up" aria-label="Throttle Up">
+        <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+      </button>
+      <button class="touch-btn" id="touch-down" aria-label="Throttle Down">
+        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script type="module" crossorigin src="/src/main.js"></script>
+</body>
+</html>

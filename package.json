@@ -1,0 +1,14 @@
+{
+  "name": "lunar-ascent",
+  "version": "1.0.0",
+  "description": "Realistic orbital physics space game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/post-inline.cjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  }
+}
