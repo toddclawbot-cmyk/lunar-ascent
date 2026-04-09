@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const order = ['physics.js', 'entities.js', 'camera.js', 'renderer.js', 'ui.js', 'input.js', 'levels.js', 'main.js'];
+const order = ['audio.js', 'physics.js', 'entities.js', 'camera.js', 'renderer.js', 'ui.js', 'input.js', 'levels.js', 'main.js'];
 const contents = {};
 for (const f of order) {
   contents[f] = fs.readFileSync(path.join(root, 'src', f), 'utf8');
